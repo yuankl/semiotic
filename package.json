@@ -109,6 +109,7 @@
     "numeral": "^1.5.3",
     "prop-types": "15.6.0",
     "react-annotation": "0.0.1-4",
+    "react-motion": "0.5.2",
     "react-resize-detector": "0.6.0"
   },
   "nyc": {
