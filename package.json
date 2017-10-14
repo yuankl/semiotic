@@ -107,6 +107,7 @@
     "lodash.uniq": "4.5.0",
     "moment": "2.10.6",
     "numeral": "^1.5.3",
+    "point-at-length": "1.0.2",
     "prop-types": "15.6.0",
     "react-annotation": "0.0.1-4",
     "react-resize-detector": "0.6.0"

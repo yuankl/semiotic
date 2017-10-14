@@ -3,8 +3,8 @@ import React from "react";
 import { area, line, curveBasis } from "d3-shape";
 import { hsl } from "d3-color";
 import DividedLine from "../DividedLine";
-import { select } from "d3-selection";
 import { scaleLinear } from "d3-scale";
+import pointAtLength from "point-at-length";
 
 //All generic line constructors expect a projected coordinates array with x & y coordinates, if there are no y1 & x1 coordinates then it defaults to 0-width
 function roundToTenth(number) {
@@ -102,7 +102,7 @@ export function linePath(x1, x2, y1, y2) {
 }
 
 export function jitterLine(pathNode) {
-  let length = pathNode.getTotalLength();
+  let length = pathNode.length();
   let j = 2;
   let x = j + Math.random() * j * 5;
   let jitteredPoints = [];
@@ -111,17 +111,17 @@ export function jitterLine(pathNode) {
     .y(d => d.y)
     .curve(curveBasis);
 
-  let newPoint = pathNode.getPointAtLength(0);
+  let newPoint = pathNode.at(0);
   jitteredPoints.push(newPoint);
 
   while (x < length) {
-    newPoint = pathNode.getPointAtLength(x);
+    newPoint = pathNode.at(x);
     let newX = newPoint.x + (Math.random() * j - j / 2);
     let newY = newPoint.y + (Math.random() * j - j / 2);
     jitteredPoints.push({ x: newX, y: newY });
     x += j + Math.random() * j * 5;
   }
-  newPoint = pathNode.getPointAtLength(length);
+  newPoint = pathNode.at(length);
   jitteredPoints.push(newPoint);
 
   return lineGen(jitteredPoints);
@@ -136,14 +136,16 @@ export function cheapSketchy(path, opacity = 1) {
     .domain([0, 1])
     .range([10, 1])
     .clamp(true);
-  const length = path.getTotalLength();
+  console.log("path", path);
+  const length = path.length();
+  console.log("length", length);
   let drawCode = "";
   let x = 0;
   const step = opacitySketchyScale(opacity);
 
   while (x < length / 2) {
-    let start = path.getPointAtLength(x);
-    let end = path.getPointAtLength(length - x);
+    let start = path.at(x);
+    let end = path.at(length - x);
 
     drawCode +=
       " M" +
@@ -162,14 +164,14 @@ export function cheapSketchy(path, opacity = 1) {
 }
 
 export function cheapPopArtsy(path, size) {
-  let length = path.getTotalLength();
+  let length = path.length();
   let circles = [];
   let x = 0;
   let step = size * 3;
 
   while (x < length / 2) {
-    const start = path.getPointAtLength(x);
-    const end = path.getPointAtLength(length - x);
+    const start = path.at(x);
+    const end = path.at(length - x);
     const distance = Math.sqrt(
       Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2)
     );
@@ -237,10 +239,6 @@ export function painty(markType, cloneProps) {
       );
     }
 
-    select("body")
-      .append("svg")
-      .attr("id", "sketchyTempSVG");
-
     let fills = [];
     let outlines = [];
 
@@ -248,15 +246,10 @@ export function painty(markType, cloneProps) {
       .split("M")
       .filter((d, i) => i !== 0)
       .forEach((pathD, i) => {
-        let pathDummy = select("#sketchyTempSVG")
-          .append("path")
-          .attr("class", cloneProps.className)
-          .attr("d", `M${pathD}`);
-
-        let pathNode = pathDummy.node();
+        const activeD = pointAtLength(`M${pathD}`);
 
         if (cloneProps.style && cloneProps.style.fill !== "none") {
-          let sketchyFill = cheapPopArtsy(pathNode, 4);
+          let sketchyFill = cheapPopArtsy(activeD, 4);
           let fillProps = Object.assign({}, cloneProps);
           let fillStyle = Object.assign({}, cloneProps.style);
           const fillValue = fillStyle.fill;
@@ -284,7 +277,7 @@ export function painty(markType, cloneProps) {
           cloneProps.style.stroke !== "none" &&
           cloneProps.style.strokeWidth !== 0
         ) {
-          let sketchyOutline = jitterLine(pathNode);
+          let sketchyOutline = jitterLine(activeD);
 
           let outlineProps = Object.assign({}, cloneProps);
           let outlineStyle = Object.assign({}, cloneProps.style);
@@ -296,8 +289,6 @@ export function painty(markType, cloneProps) {
           outlines.push(React.createElement("path", outlineProps));
         }
       });
-
-    select("#sketchyTempSVG").remove();
 
     return [
       <path
@@ -384,24 +375,17 @@ export function sketchy(markType, cloneProps) {
     const sketchKey = Math.random().toString();
 
     if (cloneProps.d) {
-      select("body")
-        .append("svg")
-        .attr("id", "sketchyTempSVG");
-
       cloneProps.d
         .split("M")
         .filter((d, i) => i !== 0)
         .forEach((pathD, i) => {
-          let pathDummy = select("#sketchyTempSVG")
-            .append("path")
-            .attr("class", cloneProps.className)
-            .attr("d", `M${pathD}`);
+          const activeD = pointAtLength(`M${pathD}`);
+          console.log("activeD", activeD);
 
-          let pathNode = pathDummy.node();
           if (cloneProps.style && cloneProps.style.fill !== "none") {
             const fillProps = Object.assign({}, cloneProps);
             const fillStyle = Object.assign({}, cloneProps.style);
-            const sketchyFill = cheapSketchy(pathNode, fillStyle.fillOpacity);
+            const sketchyFill = cheapSketchy(activeD, fillStyle.fillOpacity);
             if (markType !== "rect" && markType !== "circle") {
               fillStyle.clipPath = `url(#clip-path-${sketchKey})`;
             }
@@ -419,7 +403,7 @@ export function sketchy(markType, cloneProps) {
             cloneProps.style.stroke !== "none" &&
             cloneProps.style.strokeWidth !== 0
           ) {
-            let sketchyOutline = jitterLine(pathNode);
+            let sketchyOutline = jitterLine(activeD);
 
             let outlineProps = Object.assign({}, cloneProps);
             let outlineStyle = Object.assign({}, cloneProps.style);
@@ -432,7 +416,6 @@ export function sketchy(markType, cloneProps) {
         });
     }
 
-    select("#sketchyTempSVG").remove();
     let generatedClipPath;
     if (markType !== "rect" && markType !== "circle") {
       generatedClipPath = (
