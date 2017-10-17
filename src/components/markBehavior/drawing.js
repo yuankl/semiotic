@@ -500,10 +500,6 @@ export function generateSVG(props, className) {
 
   if (props.markType === "dividedline") {
     actualSVG = React.createElement(DividedLine, props);
-  } else if (renderMode === "sketchy") {
-    actualSVG = sketchy(markType, cloneProps);
-  } else if (renderMode === "painty") {
-    actualSVG = painty(markType, cloneProps);
   } else if (renderMode === "forcePath" && markType === "circle") {
     cloneProps.d = circlePath(
       cloneProps.cx || 0,
@@ -511,7 +507,6 @@ export function generateSVG(props, className) {
       cloneProps.r
     );
     markType = "path";
-    actualSVG = React.createElement(markType, cloneProps);
   } else if (renderMode === "forcePath" && markType === "rect") {
     cloneProps.d = rectPath(
       cloneProps.x || 0,
@@ -520,12 +515,10 @@ export function generateSVG(props, className) {
       cloneProps.height
     );
     markType = "path";
-    actualSVG = React.createElement(markType, cloneProps);
   } else {
     if (props.markType === "text" && typeof cloneProps.children !== "object") {
       cloneProps.children = <tspan>{cloneProps.children}</tspan>;
     }
-    actualSVG = React.createElement(markType, cloneProps);
   }
-  return actualSVG;
+  return { finalType: markType, finalProps: cloneProps };
 }

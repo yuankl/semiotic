@@ -1,12 +1,15 @@
 import React from "react";
 import { select } from "d3-selection";
 import "d3-transition";
+import { easeExpOut } from "d3-ease";
 
 import { interpolate } from "flubber";
 
+import Animate from "react-move/Animate";
+
 // Decorator stopped working why?
 //import draggable from '../decorators/draggable'
-import { generateSVG } from "./markBehavior/drawing";
+import { generateSVG, sketchy, painty } from "./markBehavior/drawing";
 
 import {
   attributeTransitionWhitelist,
@@ -44,6 +47,7 @@ class Mark extends React.Component {
   }
 
   shouldComponentUpdate(nextProps) {
+    return true;
     //data-driven transition time?
     if (
       this.props.markType !== nextProps.markType ||
@@ -219,39 +223,110 @@ class Mark extends React.Component {
     let mouseIn = null;
     let mouseOut = null;
 
-    const actualSVG = generateSVG(this.props, className);
+    const calculatedSVG = generateSVG(this.props, className);
+    const { finalType, finalProps } = calculatedSVG;
+    let gProps;
 
     if (this.props.draggable) {
-      return (
-        <g
-          ref={node => (this.node = node)}
-          className={className}
-          onMouseEnter={mouseIn}
-          onMouseOut={mouseOut}
-          onDoubleClick={this._doubleclick}
-          style={{
-            pointerEvents:
-              this.props.dropFunction && this.state.dragging ? "none" : "all"
-          }}
-          onMouseDown={this._mousedown}
-          onMouseUp={this._mouseup}
-          transform={"translate(" + this.state.translate + ")"}
-        >
-          {actualSVG}
-        </g>
-      );
+      gProps = {
+        ref: node => (this.node = node),
+        className: className,
+        onMouseEnter: mouseIn,
+        onMouseOut: mouseOut,
+        onDoubleClick: this._doubleclick,
+        style: {
+          pointerEvents:
+            this.props.dropFunction && this.state.dragging ? "none" : "all"
+        },
+        onMouseDown: this._mousedown,
+        onMouseUp: this._mouseup,
+        transform: "translate(" + this.state.translate + ")"
+      };
     } else {
-      return (
-        <g
-          ref={node => (this.node = node)}
-          className={className}
-          onMouseEnter={mouseIn}
-          onMouseOut={mouseOut}
+      gProps = {
+        ref: node => (this.node = node),
+        className: className,
+        onMouseEnter: mouseIn,
+        onMouseOut: mouseOut
+      };
+    }
+    const { style = {}, renderMode } = this.props;
+
+    let actualSVG;
+
+    if (renderMode === "sketchy") {
+      actualSVG = sketchy(finalType, finalProps);
+    } else if (renderMode === "painty") {
+      actualSVG = painty(finalType, finalProps);
+    } else if (typeof renderMode === "function") {
+      actualSVG = renderMode(finalType, finalProps);
+    } else {
+      const styleAnimations = {};
+      const styleUpdateAnimations = {};
+      styleTransitionWhitelist.forEach(s => {
+        if (style[s]) {
+          styleAnimations[s] = style[s];
+          styleUpdateAnimations[s] = [style[s]];
+        }
+      });
+
+      const attrAnimations = {};
+      const attrUpdateAnimations = {};
+      attributeTransitionWhitelist.forEach(a => {
+        if (finalProps[a]) {
+          attrAnimations[a] = finalProps[a];
+          attrUpdateAnimations[a] = [finalProps[a]];
+        }
+      });
+
+      actualSVG = (
+        <Animate
+          start={{ ...styleAnimations, ...attrAnimations }}
+          update={{
+            ...styleUpdateAnimations,
+            ...attrUpdateAnimations,
+            timing: { duration: 1000, ease: easeExpOut }
+          }}
         >
-          {actualSVG}
-        </g>
+          {({
+            strokeOpacity,
+            fillOpacity,
+            strokeWidth,
+            fill,
+            stroke,
+            opacity,
+            strokeDasharray,
+            height,
+            width,
+            transform,
+            x,
+            y
+          }) =>
+            React.createElement(finalType, {
+              ...finalProps,
+              ...{
+                style: {
+                  ...style,
+                  strokeOpacity,
+                  fillOpacity,
+                  strokeWidth,
+                  fill,
+                  stroke,
+                  opacity,
+                  strokeDasharray
+                },
+                height,
+                width,
+                transform,
+                x,
+                y
+              }
+            })}
+        </Animate>
       );
     }
+
+    return <g {...gProps}>{actualSVG}</g>;
   }
 }
 
